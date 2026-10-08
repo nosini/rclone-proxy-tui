@@ -8,6 +8,12 @@ go vet ./...
 go test -race ./...
 ```
 
+To install directly from source:
+
+```sh
+go install github.com/nosini/rclone-proxy-tui@latest
+```
+
 Run the end-to-end suite with a current rclone on PATH. It starts local
 servers for all five protocols and checks plain and crypt shares, client
 isolation, failed logins, configuration reloads, and upload draining during
@@ -21,3 +27,13 @@ where they live.
 CI runs formatting checks, vet, unit tests and the end-to-end suite. Tags
 matching `v*` build static Linux amd64 and arm64 binaries and publish them
 with checksums in a GitHub release.
+
+To publish a release, push a signed version tag after CI passes on `main`:
+
+```sh
+git tag -s v0.1.0 -m "Release v0.1.0"
+git push origin v0.1.0
+```
+
+GitHub builds the binaries; users download them from Releases without a Go
+toolchain. Use a new version number for each subsequent release.

@@ -25,17 +25,19 @@ rclone-proxy-tui  1 Remotes  2 Clients  3 Server      ● daemon  ● webdav:808
 
 ## Install
 
-You need rclone installed (`curl https://rclone.org/install.sh | sudo bash`),
-plus either Go 1.24.7+ or a release binary.
+Install [rclone](https://rclone.org/install/) first, then download the binary
+for your machine from [GitHub Releases](https://github.com/nosini/rclone-proxy-tui/releases/latest).
+You do not need Go installed.
+
+For Linux x86-64 (most PCs and servers):
 
 ```sh
-go install github.com/nosini/rclone-proxy-tui@latest
-# or build from a checkout
-go build -o rclone-proxy-tui . && sudo install rclone-proxy-tui /usr/local/bin/
+curl -fL https://github.com/nosini/rclone-proxy-tui/releases/latest/download/rclone-proxy-tui-linux-amd64 -o rclone-proxy-tui
+sudo install -m 755 rclone-proxy-tui /usr/local/bin/rclone-proxy-tui
 ```
 
-Release builds for linux/amd64 and linux/arm64 are attached to tagged
-releases.
+For Linux ARM64, use `rclone-proxy-tui-linux-arm64` in the download URL.
+Each release also includes a `SHA256SUMS` file.
 
 ## Quick start
 
