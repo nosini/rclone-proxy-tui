@@ -1,0 +1,24 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Install rclone
+        run: curl -fsSL https://rclone.org/install.sh | sudo bash
+      - name: Vet
+        run: go vet ./...
+      - name: Format
+        run: test -z "$(gofmt -l .)"
+      - name: Unit tests
+        run: go test ./...
+      - name: End-to-end tests
+        run: ./scripts/e2e.sh
