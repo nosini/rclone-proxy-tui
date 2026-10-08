@@ -11,14 +11,29 @@ func TestObscureMatchesRclone(t *testing.T) {
 	if err != nil {
 		t.Skip("rclone not installed")
 	}
-	for _, pw := range []string{"hunter2", "äöü with spaces", GeneratePassword(20)} {
-		out, err := exec.Command(bin, "reveal", Obscure(pw)).Output()
-		if err != nil {
-			t.Fatal(err)
-		}
-		if got := strings.TrimSpace(string(out)); got != pw {
-			t.Fatalf("rclone reveal = %q, want %q", got, pw)
-		}
+	for _, tc := range []struct {
+		name, password, obscured string
+	}{
+		{name: "ASCII", password: "hunter2"},
+		{name: "Unicode", password: "äöü with spaces"},
+		{name: "random password", password: GeneratePassword(20)},
+		{name: "whitespace", password: " leading and trailing "},
+		// A valid encoding of hunter2 that starts with a CLI flag prefix.
+		{name: "flag-like encoding", password: "hunter2", obscured: "-FmMNX42nSqxlf3rutmKjZpqnyyaYFs"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			encoded := tc.obscured
+			if encoded == "" {
+				encoded = Obscure(tc.password)
+			}
+			out, err := exec.Command(bin, "reveal", "--", encoded).CombinedOutput()
+			if err != nil {
+				t.Fatalf("rclone reveal: %v\n%s", err, out)
+			}
+			if got := strings.TrimSuffix(string(out), "\n"); got != tc.password {
+				t.Fatalf("rclone reveal = %q, want %q", got, tc.password)
+			}
+		})
 	}
 }
 

@@ -24,15 +24,16 @@ where they live.
 ./scripts/e2e.sh
 ```
 
-CI runs formatting checks, vet, unit tests and the end-to-end suite. Tags
-matching `v*` build static Linux amd64 and arm64 binaries and publish them
-with checksums in a GitHub release.
+CI runs formatting checks, vet, unit tests and the end-to-end suite on
+branches and pull requests. Tags matching `v*` run the same checks through
+the release workflow. Only after they pass does GitHub build static Linux
+amd64 and arm64 binaries and publish them with checksums in a release.
 
 To publish a release, push a signed version tag after CI passes on `main`:
 
 ```sh
-git tag -s v0.1.0 -m "Release v0.1.0"
-git push origin v0.1.0
+git tag -s v0.1.1 -m "Release v0.1.1"
+git push origin v0.1.1
 ```
 
 GitHub builds the binaries; users download them from Releases without a Go
