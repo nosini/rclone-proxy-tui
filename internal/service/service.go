@@ -101,8 +101,7 @@ func (m *Manager) Unit() string {
 	return fmt.Sprintf(`[Unit]
 Description=rclone-proxy-tui: serve rclone remotes to clients
 Documentation=https://github.com/nosini/rclone-proxy-tui
-After=network-online.target
-Wants=network-online.target
+After=network.target
 
 [Service]
 Type=simple
