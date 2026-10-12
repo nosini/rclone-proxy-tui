@@ -66,7 +66,9 @@ buckets). There are three ways to give remotes to clients:
 - **Remotes tab**: select remotes with `space`. Press `s` to create a *new*
   client for them, or `a` to *add* them to an existing client.
 - **Clients tab**: press `e` on a client to get a checklist of every remote.
-  Press `p` on a remote to share only a sub-folder of it.
+  Press `p` on a remote to share only a sub-folder of it. The client still
+  sees the sub-folder's full path, such as `gdrive/Photos/`; the folders
+  above it show nothing else and can't hold files.
 - The *SHARED WITH* column shows who has access to what.
 
 Some apps expect their files at the top level of the server. A KeePass app
@@ -75,8 +77,9 @@ outside every remote folder. That save can't be uploaded anywhere, and rclone
 keeps retrying it from its cache. Either point the app at the remote's folder
 (`http://server:8080/<remote>/Passwords.kdbx`) or, in the client's `e` form,
 tick *Serve the remote as the top level*. That option works when the client
-has exactly one remote. S3 clients with it see the remote's top-level folders
-as buckets.
+has exactly one remote. If that remote is limited to a sub-folder, the
+sub-folder's contents become the top level. S3 clients with it see the
+top-level folders as buckets.
 
 ### Keys
 

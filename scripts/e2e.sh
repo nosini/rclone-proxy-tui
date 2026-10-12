@@ -35,7 +35,10 @@ rclone config create files alias remote="$DATA" --non-interactive >/dev/null
 rclone config create "secret stuff" crypt remote=files:enc password=correct-horse --obscure --non-interactive >/dev/null
 echo "top secret" >"$WORK/plain/s.txt"
 rclone copy "$WORK/plain" "secret stuff:docs"
+rclone copy "$WORK/plain" "secret stuff:other"
 echo "hello" >"$DATA/hello.txt"
+mkdir -p "$DATA/deep/it's here"
+echo "deep" >"$DATA/deep/it's here/d.txt"
 unset RCLONE_CONFIG
 
 cat >"$DIR/state.json" <<EOF
@@ -58,7 +61,9 @@ cat >"$DIR/state.json" <<EOF
     {"id": "2", "name": "bob", "username": "bob", "password": "bobpw",
      "shares": [{"remote": "secret stuff", "path": "docs"}]},
     {"id": "3", "name": "carol", "username": "carol", "password": "carolpw",
-     "as_root": true, "shares": [{"remote": "files"}]}
+     "as_root": true, "shares": [{"remote": "files"}]},
+    {"id": "4", "name": "dave", "username": "dave", "password": "davepw",
+     "shares": [{"remote": "files", "path": "deep/it's here"}]}
   ]
 }
 EOF
@@ -100,6 +105,22 @@ host = 127.0.0.1
 port = $((BASE+1))
 user = carol
 pass = $(ob carolpw)
+shell_type = none
+known_hosts_file = none
+
+[webdav-dave]
+type = webdav
+url = http://127.0.0.1:$BASE/
+vendor = rclone
+user = dave
+pass = $(ob davepw)
+
+[sftp-dave]
+type = sftp
+host = 127.0.0.1
+port = $((BASE+1))
+user = dave
+pass = $(ob davepw)
 shell_type = none
 known_hosts_file = none
 
@@ -158,6 +179,7 @@ rc copyto "$WORK/up.txt" "webdav:secret stuff/docs/up.txt" || fail "webdav uploa
 [[ -z "$(ls "$DATA/enc" | grep -v -E '^[a-z0-9]+$' || true)" ]] || fail "upload not encrypted"
 rc copyto "$WORK/up.txt" "sftp:files/up-sftp.txt" || fail "sftp upload"
 rc copyto "$WORK/up.txt" "sftp-carol:up-root.txt" || fail "root upload"
+rc copyto "$WORK/up.txt" "sftp-dave:files/deep/it's here/up-deep.txt" || fail "sub-folder upload"
 sleep 7 # VFS write-back delay
 [[ -f "$DATA/up-sftp.txt" ]] || fail "sftp upload missing"
 pass "uploads through webdav (into crypt) and sftp"
@@ -165,13 +187,19 @@ pass "uploads through webdav (into crypt) and sftp"
 got=$(rc cat webdav-carol:hello.txt 2>"$WORK/err") || fail "carol: $(cat "$WORK/err")"
 [[ "$got" == "hello" ]] || fail "carol read: $got"
 pass "a client with its remote as the top level reads and uploads there"
+[[ -f "$DATA/deep/it's here/up-deep.txt" ]] || fail "upload into a sub-folder share missing"
 
 echo "Isolation and auth:"
 got=$(rc lsf webdav-bob: 2>"$WORK/err") || fail "bob: $(cat "$WORK/err")"
 [[ "$got" == "secret stuff/" ]] || fail "bob sees: $got"
 got=$(rc lsf "webdav-bob:secret stuff" 2>/dev/null)
-[[ "$got" == *s.txt* && "$got" != *docs* ]] || fail "bob sub-folder: $got"
-pass "bob only sees his remote, limited to the sub-folder"
+[[ "$got" == "docs/" ]] || fail "bob sub-folder path: $got"
+got=$(rc lsf "webdav-bob:secret stuff/docs" 2>/dev/null)
+[[ "$got" == *s.txt* ]] || fail "bob sub-folder: $got"
+pass "bob only sees his remote, limited to the sub-folder at its full path"
+got=$(rc lsf -R webdav-dave: 2>"$WORK/err") || fail "dave: $(cat "$WORK/err")"
+[[ "$got" == $'files/\nfiles/deep/\nfiles/deep/it\'s here/\nfiles/deep/it\'s here/d.txt\nfiles/deep/it\'s here/up-deep.txt' ]] || fail "dave sees: $got"
+pass "a nested sub-folder with a space and a quote keeps its full path"
 rc lsf webdav-bad: >/dev/null 2>&1 && fail "wrong webdav password accepted"
 rc lsf s3-bad: >/dev/null 2>&1 && fail "wrong s3 secret accepted"
 pass "wrong passwords are refused"
@@ -195,7 +223,7 @@ pass "all protocols follow edits to rclone.conf"
 
 echo "Revocation (with an upload still queued in the server's cache):"
 head -c 2000000 /dev/urandom >"$WORK/big.bin"
-rc copyto "$WORK/big.bin" "webdav-bob:secret stuff/big.bin" || fail "bob upload"
+rc copyto "$WORK/big.bin" "webdav-bob:secret stuff/docs/big.bin" || fail "bob upload"
 before=$(find "$DATA/enc" -type f | wc -l)
 python3 - "$DIR/state.json" <<'EOF'
 import json, sys
@@ -215,7 +243,7 @@ done
 sleep 3
 after=$(find "$DATA/enc" -type f | wc -l)
 [[ $after -gt $before ]] || fail "queued upload was lost in the restart"
-got=$(rc cat "webdav-bob:secret stuff/big.bin" 2>/dev/null | cmp - "$WORK/big.bin" && echo same)
+got=$(rc cat "webdav-bob:secret stuff/docs/big.bin" 2>/dev/null | cmp - "$WORK/big.bin" && echo same)
 [[ "$got" == "same" ]] || fail "uploaded file differs after restart"
 pass "queued upload reached the (encrypted) storage intact"
 for r in webdav sftp s3 ftp http; do

@@ -27,7 +27,7 @@ func TestResolve(t *testing.T) {
 	if cfg["type"] != "combine" || cfg["_root"] != "" {
 		t.Fatalf("bad cfg %v", cfg)
 	}
-	want := `gdrive=gdrive: "my crypt=my crypt:docs"`
+	want := `gdrive=gdrive: "my crypt=:combine,upstreams='""docs=my crypt:docs""':"`
 	if cfg["upstreams"] != want {
 		t.Fatalf("upstreams = %q, want %q", cfg["upstreams"], want)
 	}

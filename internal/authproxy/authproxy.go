@@ -74,7 +74,9 @@ func Resolve(st *state.State, proto state.Protocol, req Request) (map[string]str
 
 // Upstreams builds the combine backend's upstreams option. Entries are
 // space separated "folder=remote:path" and quoted CSV style when they
-// contain spaces or quotes.
+// contain spaces or quotes. A sub-folder share keeps its path visible:
+// combine folder names can't contain "/", so every folder of the path is
+// another combine nested as an on-the-fly remote.
 func Upstreams(shares []state.Share) (string, error) {
 	seen := map[string]bool{}
 	var parts []string
@@ -87,11 +89,12 @@ func Upstreams(shares []state.Share) (string, error) {
 			return "", fmt.Errorf("two shares use the folder name %q", folder)
 		}
 		seen[folder] = true
-		entry := folder + "=" + s.Target()
-		if strings.ContainsAny(entry, " \"\t") {
-			entry = `"` + strings.ReplaceAll(entry, `"`, `""`) + `"`
+		target := s.Target()
+		path := s.PathFolders()
+		for i := len(path) - 1; i >= 0; i-- {
+			target = ":combine,upstreams='" + strings.ReplaceAll(upstream(path[i], target), "'", "''") + "':"
 		}
-		parts = append(parts, entry)
+		parts = append(parts, upstream(folder, target))
 	}
 	if len(parts) == 0 {
 		return "", errors.New("no remotes to share")
@@ -114,4 +117,13 @@ func Run(paths state.Paths, proto state.Protocol, in io.Reader, out io.Writer) e
 		return err
 	}
 	return json.NewEncoder(out).Encode(cfg)
+}
+
+// upstream is one entry of a combine upstreams list.
+func upstream(folder, target string) string {
+	entry := folder + "=" + target
+	if strings.ContainsAny(entry, " \"\t") {
+		entry = `"` + strings.ReplaceAll(entry, `"`, `""`) + `"`
+	}
+	return entry
 }

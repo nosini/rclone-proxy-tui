@@ -158,8 +158,8 @@ func Text(st *state.State, c *state.Client) string {
 	} else {
 		var folders []string
 		for _, s := range c.Shares {
-			f := s.FolderName()
-			if f != s.Target() && f+":" != s.Target() {
+			f := s.VisiblePath()
+			if s.Folder != "" {
 				f += " (" + s.Target() + ")"
 			}
 			folders = append(folders, f)

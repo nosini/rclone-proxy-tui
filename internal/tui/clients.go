@@ -307,7 +307,7 @@ func (f *clientForm) Update(m *Model, k tea.KeyMsg) (bool, tea.Cmd) {
 			it.checked = !it.checked
 		case "p", "/":
 			m.push(newInputModal("Sub-folder of "+it.remote,
-				"Only share this folder inside "+it.remote+": (leave empty for the whole remote)", it.path,
+				"Only share this folder inside "+it.remote+" (the client still sees its full path; leave empty for the whole remote):", it.path,
 				func(m *Model, v string) (tea.Cmd, error) {
 					it.path = strings.Trim(v, "/")
 					if it.path != "" {

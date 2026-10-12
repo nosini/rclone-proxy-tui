@@ -97,25 +97,44 @@ type ProtocolConfig struct {
 }
 
 // Share is one remote exposed to a client. It appears to the client as a
-// top level folder called Folder.
+// top level folder called Folder, with Path's folders kept inside it.
 type Share struct {
 	Remote string `json:"remote"`
 	Path   string `json:"path,omitempty"`
 	Folder string `json:"folder,omitempty"`
 }
 
-// FolderName is the folder the share appears as.
+var folderReplacer = strings.NewReplacer("/", "_", "\\", "_", "=", "_")
+
+// FolderName is the top level folder the share appears as.
 func (s Share) FolderName() string {
 	f := s.Folder
 	if f == "" {
 		f = s.Remote
 	}
-	return strings.NewReplacer("/", "_", "\\", "_", "=", "_").Replace(f)
+	return folderReplacer.Replace(f)
+}
+
+// PathFolders are the folders of Path, outermost first, as the client sees
+// them inside FolderName.
+func (s Share) PathFolders() []string {
+	var out []string
+	for _, p := range strings.Split(s.Path, "/") {
+		if p != "" {
+			out = append(out, folderReplacer.Replace(p))
+		}
+	}
+	return out
+}
+
+// VisiblePath is where the client finds the share, e.g. "gdrive/Photos".
+func (s Share) VisiblePath() string {
+	return strings.Join(append([]string{s.FolderName()}, s.PathFolders()...), "/")
 }
 
 // Target is the rclone path the share points at, e.g. "gdrive:Photos".
 func (s Share) Target() string {
-	return s.Remote + ":" + strings.TrimPrefix(s.Path, "/")
+	return s.Remote + ":" + strings.Trim(s.Path, "/")
 }
 
 // Client is a set of credentials that can log in to every enabled protocol

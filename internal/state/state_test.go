@@ -74,4 +74,7 @@ func TestShareFolderName(t *testing.T) {
 	if s.FolderName() != "a_b_c" || (Share{Remote: "g", Path: "/x"}).Target() != "g:x" {
 		t.Fatal(s.FolderName())
 	}
+	if p := (Share{Remote: "my crypt", Path: "/a=b//c/"}).VisiblePath(); p != "my crypt/a_b/c" {
+		t.Fatalf("visible path = %q", p)
+	}
 }
