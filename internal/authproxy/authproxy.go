@@ -4,7 +4,8 @@
 // writes {"user": ..., "pass": ...} on stdin and expects a backend config on
 // stdout. We look the user up in the state file, check the password and
 // answer with a "combine" backend whose top level folders are the remotes
-// shared with that client. Because the upstreams are named remotes from
+// shared with that client, or with an "alias" of the client's only remote
+// when it is served as the root. Because the upstreams are named remotes from
 // rclone.conf, crypt, alias, union etc. all keep working exactly as they do
 // on the command line.
 package authproxy
@@ -51,13 +52,23 @@ func Resolve(st *state.State, proto state.Protocol, req Request) (map[string]str
 	if len(c.Shares) == 0 {
 		return nil, fmt.Errorf("login refused for %q: no remotes are shared with this client", req.User)
 	}
+	cfg["_root"] = ""
+	if c.AsRoot {
+		// Refuse rather than fall back to folders: paths the client has
+		// saved would silently point somewhere else.
+		if len(c.Shares) != 1 {
+			return nil, fmt.Errorf("login refused for %q: the root can only serve one remote, but %d are shared", req.User, len(c.Shares))
+		}
+		cfg["type"] = "alias"
+		cfg["remote"] = c.Shares[0].Target()
+		return cfg, nil
+	}
 	upstreams, err := Upstreams(c.Shares)
 	if err != nil {
 		return nil, err
 	}
 	cfg["type"] = "combine"
 	cfg["upstreams"] = upstreams
-	cfg["_root"] = ""
 	return cfg, nil
 }
 

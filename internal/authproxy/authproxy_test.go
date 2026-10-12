@@ -73,3 +73,24 @@ func TestUpstreamsDuplicateFolder(t *testing.T) {
 		t.Fatal("expected duplicate folder error")
 	}
 }
+
+func TestResolveAsRoot(t *testing.T) {
+	st := testState()
+	st.Clients = append(st.Clients, &state.Client{ID: "4", Username: "phone", Password: "pw", AsRoot: true,
+		Shares: []state.Share{{Remote: "my crypt", Path: "/keepass"}}})
+	cfg, err := Resolve(st, state.WebDAV, Request{User: "phone", Pass: "pw"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg["type"] != "alias" || cfg["remote"] != "my crypt:keepass" || cfg["_root"] != "" {
+		t.Fatalf("bad cfg %v", cfg)
+	}
+	if _, ok := cfg["upstreams"]; ok {
+		t.Fatalf("alias answer has upstreams: %v", cfg)
+	}
+
+	st.ClientByUsername("phone").Shares = append(st.ClientByUsername("phone").Shares, state.Share{Remote: "gdrive"})
+	if _, err := Resolve(st, state.WebDAV, Request{User: "phone", Pass: "pw"}); err == nil {
+		t.Fatal("expected refusal for a root client with two remotes")
+	}
+}

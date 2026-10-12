@@ -465,7 +465,9 @@ How it works
     union etc. all work, because clients are served the named remote).
   • A client is a login (username + generated password) that can see one or
     more remotes, each as a top level folder. The same remote can be shared
-    with as many clients as you like.
+    with as many clients as you like. A client with one remote can instead
+    see it as the top level (e on the client), for apps that save files
+    there.
   • A background daemon runs one rclone server per enabled protocol
     (WebDAV, SFTP, S3, FTP, HTTP). Every client logs in to the same ports with
     its own credentials. Changes apply within a second.

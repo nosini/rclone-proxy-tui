@@ -121,11 +121,14 @@ func (s Share) Target() string {
 // Client is a set of credentials that can log in to every enabled protocol
 // and sees its Shares.
 type Client struct {
-	ID       string    `json:"id"`
-	Name     string    `json:"name"`
-	Username string    `json:"username"`
-	Password string    `json:"password"`
-	Shares   []Share   `json:"shares"`
+	ID       string  `json:"id"`
+	Name     string  `json:"name"`
+	Username string  `json:"username"`
+	Password string  `json:"password"`
+	Shares   []Share `json:"shares"`
+	// AsRoot serves the client's only share as its top level instead of as
+	// a folder, for apps that expect the share at the server's root.
+	AsRoot   bool      `json:"as_root,omitempty"`
 	Disabled bool      `json:"disabled,omitempty"`
 	Created  time.Time `json:"created"`
 }
@@ -155,8 +158,9 @@ func (c *Client) Fingerprint() string {
 	b, _ := json.Marshal(struct {
 		P string
 		S []Share
+		R bool
 		D bool
-	}{c.Password, c.Shares, c.Disabled})
+	}{c.Password, c.Shares, c.AsRoot, c.Disabled})
 	return string(b)
 }
 

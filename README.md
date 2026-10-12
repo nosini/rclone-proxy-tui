@@ -69,6 +69,15 @@ buckets). There are three ways to give remotes to clients:
   Press `p` on a remote to share only a sub-folder of it.
 - The *SHARED WITH* column shows who has access to what.
 
+Some apps expect their files at the top level of the server. A KeePass app
+told to save to `http://server:8080/Passwords.kdbx`, for example, writes
+outside every remote folder. That save can't be uploaded anywhere, and rclone
+keeps retrying it from its cache. Either point the app at the remote's folder
+(`http://server:8080/<remote>/Passwords.kdbx`) or, in the client's `e` form,
+tick *Serve the remote as the top level*. That option works when the client
+has exactly one remote. S3 clients with it see the remote's top-level folders
+as buckets.
+
 ### Keys
 
 | Where   | Key | Action |
@@ -103,6 +112,7 @@ saves.
  client ──WebDAV/SFTP/S3/FTP/HTTP──▶ rclone serve <proto> --auth-proxy "rclone-proxy-tui auth-proxy <proto>"
                                          │  on login: {"user","pass"} ─▶ auth proxy checks state.json
                                          │  ◀─ {"type":"combine","upstreams":"gdrive=gdrive: vault=vault:"}
+                                         │     (or {"type":"alias","remote":"vault:"} for a top-level remote)
                                          ▼
                               named remotes from your rclone.conf (crypt, drive, sftp, …)
 ```
@@ -113,7 +123,8 @@ saves.
   `status.json` for the TUI.
 - **Per-client logins** use rclone's `--auth-proxy`. On each login rclone runs
   `rclone-proxy-tui auth-proxy <proto>`, which checks the password and answers
-  with a `combine` backend whose folders are that client's remotes. The
+  with a `combine` backend whose folders are that client's remotes, or an
+  `alias` of its one remote when that is served as the top level. The
   upstreams are *named* remotes from `rclone.conf`, so crypt and other
   wrapping remotes work exactly as they do on the command line. S3 uses the
   username as the access key ID and the password as the secret.

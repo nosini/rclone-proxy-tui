@@ -138,7 +138,7 @@ func (m *Model) shareFlow(names []string) tea.Cmd {
 		if value == "" {
 			return nil, fmt.Errorf("enter a name")
 		}
-		c, err := m.createClient(value, "", sharesFor(names))
+		c, err := m.createClient(value, "", sharesFor(names), false)
 		if err != nil {
 			return nil, err
 		}
@@ -157,12 +157,13 @@ func sharesFor(names []string) []state.Share {
 	return shares
 }
 
-func (m *Model) createClient(name, username string, shares []state.Share) (*state.Client, error) {
+func (m *Model) createClient(name, username string, shares []state.Share, asRoot bool) (*state.Client, error) {
 	c := &state.Client{
 		ID:       state.NewID(),
 		Name:     name,
 		Password: state.GeneratePassword(20),
 		Shares:   shares,
+		AsRoot:   asRoot,
 		Created:  time.Now(),
 	}
 	err := m.save(func(s *state.State) error {
@@ -207,6 +208,9 @@ func (m *Model) addToClientFlow(names []string) tea.Cmd {
 						c.Shares = append(c.Shares, state.Share{Remote: n})
 						added = append(added, n)
 					}
+				}
+				if c.AsRoot && len(c.Shares) > 1 {
+					return fmt.Errorf("%s serves its remote as the top level, which only works with one remote; press e on it in the Clients tab to change that", c.Name)
 				}
 				return nil
 			})

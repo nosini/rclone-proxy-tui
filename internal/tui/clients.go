@@ -166,6 +166,9 @@ func (m *Model) clientsView(h int) (string, string) {
 			rem = append(rem, t)
 		}
 		remText := strings.Join(rem, ", ")
+		if c.AsRoot && remText != "" {
+			remText += " (as top level)"
+		}
 		if remText == "" {
 			remText = "(none - press e to add)"
 		}
@@ -199,7 +202,8 @@ type clientForm struct {
 	user        textinput.Model
 	userTouched bool
 	items       []*clientItem
-	focus       int // 0 name, 1 username, 2.. items, last = save
+	asRoot      bool
+	focus       int // 0 name, 1 username, 2.. items, then root toggle, last = save
 	err         string
 }
 
@@ -208,6 +212,7 @@ func newClientForm(m *Model, c *state.Client) *clientForm {
 	name, user := m.st.NextClientName(), ""
 	if c != nil {
 		f.id, name, user = c.ID, c.Name, c.Username
+		f.asRoot = c.AsRoot
 		f.userTouched = true
 	}
 	f.name = newInput(name, "e.g. laptop", 40)
@@ -238,7 +243,9 @@ func newClientForm(m *Model, c *state.Client) *clientForm {
 	return f
 }
 
-func (f *clientForm) count() int { return 2 + len(f.items) + 1 }
+func (f *clientForm) count() int { return 2 + len(f.items) + 2 }
+
+func (f *clientForm) rootFocus() int { return 2 + len(f.items) }
 
 func (f *clientForm) setFocus(i int) {
 	n := f.count()
@@ -281,7 +288,17 @@ func (f *clientForm) Update(m *Model, k tea.KeyMsg) (bool, tea.Cmd) {
 			it.checked = !it.checked
 			return false, nil
 		}
+		if f.focus == f.rootFocus() {
+			f.asRoot = !f.asRoot
+			return false, nil
+		}
 		f.setFocus(f.focus + 1)
+		return false, nil
+	}
+	if f.focus == f.rootFocus() {
+		if k.String() == " " || k.String() == "x" {
+			f.asRoot = !f.asRoot
+		}
 		return false, nil
 	}
 	if it := f.item(); it != nil {
@@ -336,8 +353,12 @@ func (f *clientForm) save(m *Model) (bool, tea.Cmd) {
 			shares = append(shares, state.Share{Remote: it.remote, Path: it.path})
 		}
 	}
+	if f.asRoot && len(shares) > 1 {
+		f.err = "only one remote can be the top level; tick a single remote or turn that option off"
+		return false, nil
+	}
 	if f.id == "" {
-		c, err := m.createClient(name, user, shares)
+		c, err := m.createClient(name, user, shares, f.asRoot)
 		if err != nil {
 			f.err = err.Error()
 			return false, nil
@@ -354,7 +375,7 @@ func (f *clientForm) save(m *Model) (bool, tea.Cmd) {
 		if other := s.ClientByUsername(user); other != nil && other.ID != id {
 			return fmt.Errorf("username %q is already used by %s", user, other.Name)
 		}
-		c.Name, c.Username, c.Shares = name, user, shares
+		c.Name, c.Username, c.Shares, c.AsRoot = name, user, shares, f.asRoot
 		return nil
 	})
 	if err != nil {
@@ -387,8 +408,8 @@ func (f *clientForm) View(m *Model) string {
 	if len(f.items) == 0 {
 		b.WriteString(sMuted.Render("  no remotes configured yet") + "\n")
 	}
-	// border 2, title 2, name/user 2, header 2, save 2, error 2, footer 3
-	h := m.bodyHeight() - 15
+	// border 2, title 2, name/user 2, header 2, root 2, save 2, error 2, footer 3
+	h := m.bodyHeight() - 17
 	if h < 3 {
 		h = 3
 	}
@@ -420,6 +441,16 @@ func (f *clientForm) View(m *Model) string {
 			b.WriteString("  " + line + "\n")
 		}
 	}
+	box := "[ ]"
+	if f.asRoot {
+		box = sGreen.Render("[x]")
+	}
+	root := trunc(box+" Serve the remote as the top level, not as a folder (one remote only)", w-8)
+	if f.focus == f.rootFocus() {
+		b.WriteString("\n" + sKey.Render("▸ ") + root + "\n")
+	} else {
+		b.WriteString("\n  " + root + "\n")
+	}
 	save := "[ Save ]"
 	if f.focus == f.count()-1 {
 		save = sTabActive.Render("Save")
@@ -428,7 +459,7 @@ func (f *clientForm) View(m *Model) string {
 	if f.err != "" {
 		b.WriteString("\n\n" + sErr.Render(f.err))
 	}
-	footer := wrapHints(w-4, "tab/↑↓", "move", "space", "tick remote", "p", "sub-folder", "ctrl+s", "save", "esc", "cancel")
+	footer := wrapHints(w-4, "tab/↑↓", "move", "space", "tick", "p", "sub-folder", "ctrl+s", "save", "esc", "cancel")
 	if f.id == "" {
 		footer = sMuted.Render("A password is generated when you save.") + "\n" + footer
 	}

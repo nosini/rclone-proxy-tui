@@ -111,10 +111,14 @@ func Endpoints(st *state.State, c *state.Client) []Endpoint {
 			ep.Rclone = fmt.Sprintf("[%s]\ntype = sftp\nhost = %s\nport = %d\nuser = %s\npass = %s\nshell_type = none\n", name, host, pc.Port, c.Username, obscured)
 		case state.S3:
 			ep.URL = fmt.Sprintf("%s://%s", scheme, hp)
+			buckets := "each shared remote is a bucket."
+			if c.AsRoot && len(c.Shares) == 1 {
+				buckets = "each top level folder of " + c.Shares[0].Target() + " is a bucket."
+			}
 			ep.Notes = []string{
 				"Access key ID: " + c.Username,
 				"Secret access key: " + c.Password,
-				"Use path-style addressing; each shared remote is a bucket.",
+				"Use path-style addressing; " + buckets,
 			}
 			ep.Rclone = fmt.Sprintf("[%s]\ntype = s3\nprovider = Rclone\nendpoint = %s\naccess_key_id = %s\nsecret_access_key = %s\n", name, ep.URL, c.Username, c.Password)
 		case state.FTP:
@@ -142,18 +146,29 @@ func Text(st *state.State, c *state.Client) string {
 	fmt.Fprintf(&b, "Client:    %s\n", c.Name)
 	fmt.Fprintf(&b, "Username:  %s\n", c.Username)
 	fmt.Fprintf(&b, "Password:  %s\n", c.Password)
-	var folders []string
-	for _, s := range c.Shares {
-		f := s.FolderName()
-		if f != s.Target() && f+":" != s.Target() {
-			f += " (" + s.Target() + ")"
+	if c.AsRoot {
+		switch len(c.Shares) {
+		case 0:
+			b.WriteString("Root:      (none - this client cannot log in until a remote is added)\n")
+		case 1:
+			fmt.Fprintf(&b, "Root:      %s (the top level, not a folder)\n", c.Shares[0].Target())
+		default:
+			b.WriteString("Root:      !! only one remote can be the root; this client cannot log in\n")
 		}
-		folders = append(folders, f)
+	} else {
+		var folders []string
+		for _, s := range c.Shares {
+			f := s.FolderName()
+			if f != s.Target() && f+":" != s.Target() {
+				f += " (" + s.Target() + ")"
+			}
+			folders = append(folders, f)
+		}
+		if len(folders) == 0 {
+			folders = []string{"(none - this client cannot log in until a remote is added)"}
+		}
+		fmt.Fprintf(&b, "Folders:   %s\n", strings.Join(folders, ", "))
 	}
-	if len(folders) == 0 {
-		folders = []string{"(none - this client cannot log in until a remote is added)"}
-	}
-	fmt.Fprintf(&b, "Folders:   %s\n", strings.Join(folders, ", "))
 	if c.Disabled {
 		b.WriteString("\n!! This client is disabled and cannot log in.\n")
 	}

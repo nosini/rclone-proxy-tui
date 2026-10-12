@@ -56,7 +56,9 @@ cat >"$DIR/state.json" <<EOF
     {"id": "1", "name": "alice", "username": "alice", "password": "alicepw",
      "shares": [{"remote": "files"}, {"remote": "secret stuff"}]},
     {"id": "2", "name": "bob", "username": "bob", "password": "bobpw",
-     "shares": [{"remote": "secret stuff", "path": "docs"}]}
+     "shares": [{"remote": "secret stuff", "path": "docs"}]},
+    {"id": "3", "name": "carol", "username": "carol", "password": "carolpw",
+     "as_root": true, "shares": [{"remote": "files"}]}
   ]
 }
 EOF
@@ -84,6 +86,22 @@ url = http://127.0.0.1:$BASE/
 vendor = rclone
 user = bob
 pass = $(ob bobpw)
+
+[webdav-carol]
+type = webdav
+url = http://127.0.0.1:$BASE/
+vendor = rclone
+user = carol
+pass = $(ob carolpw)
+
+[sftp-carol]
+type = sftp
+host = 127.0.0.1
+port = $((BASE+1))
+user = carol
+pass = $(ob carolpw)
+shell_type = none
+known_hosts_file = none
 
 [webdav-bad]
 type = webdav
@@ -139,9 +157,14 @@ echo "upload" >"$WORK/up.txt"
 rc copyto "$WORK/up.txt" "webdav:secret stuff/docs/up.txt" || fail "webdav upload"
 [[ -z "$(ls "$DATA/enc" | grep -v -E '^[a-z0-9]+$' || true)" ]] || fail "upload not encrypted"
 rc copyto "$WORK/up.txt" "sftp:files/up-sftp.txt" || fail "sftp upload"
+rc copyto "$WORK/up.txt" "sftp-carol:up-root.txt" || fail "root upload"
 sleep 7 # VFS write-back delay
 [[ -f "$DATA/up-sftp.txt" ]] || fail "sftp upload missing"
 pass "uploads through webdav (into crypt) and sftp"
+[[ -f "$DATA/up-root.txt" ]] || fail "upload to the top level of a root client missing"
+got=$(rc cat webdav-carol:hello.txt 2>"$WORK/err") || fail "carol: $(cat "$WORK/err")"
+[[ "$got" == "hello" ]] || fail "carol read: $got"
+pass "a client with its remote as the top level reads and uploads there"
 
 echo "Isolation and auth:"
 got=$(rc lsf webdav-bob: 2>"$WORK/err") || fail "bob: $(cat "$WORK/err")"
